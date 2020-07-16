@@ -21,9 +21,8 @@ def plot(l,L,P,color_map):
     for i in range(len(l)):
         pl.text(pos[i][0]*1.5,pos[i][1]*1.5, s= f"(L={L[i]}, P={P[i]})", horizontalalignment='center')
     
-
-
     nx.draw(G, node_color=color_map, pos = pos, with_labels=True)
+    
     #Add the length of each line as a label
     for node1, (x1,y1) in pos.items():
         for node2,length in l[node1].items():
@@ -36,19 +35,18 @@ def plot(l,L,P,color_map):
 
 def negative_length_cycle_finder(l,node,L,P,color_map):
     c=[]
-    for i in range(len(l)*2):
+    for i in range(len(l)):
         c.append(node)
         #it's in the cycle, so you can go from it to itself with less than
         #0 distance; length = - infinity
         color_map[node]='orange'
-        plot(l,L,P,color_map)
         L[node]=-math.inf
+        plot(l,L,P,color_map)
+        
         #These lines make a list c that goes backwards from the starting node until it
         #reaches a node that this list c has already reached by going backwards.
         
-        
         node=P[node]
-        
         if node in c:
             
             cycle=[node]+c[:c.index(node):-1]+[node]
@@ -88,8 +86,15 @@ def Pathgrapher(l,st):
     are affected.'''
         
     tr=0
-    for i in range(1,len(l)-2):
+    for i in range(1,len(l)-1):
         tr+=i
+    tr+=3
+    
+    mn=0
+    for i in l:
+        for j in i.values():
+            if j<0:
+                mn+=j
     
     #E is the list of nodes that have been and will be explored
     E=[st]
@@ -116,7 +121,6 @@ def Pathgrapher(l,st):
     
     #draws a visual representation of the algorithm's current state
     plot(l,L,P,color_map)
-    s=0
     for p, m in enumerate(E):
         #p is the index and m is the node
         
@@ -131,20 +135,8 @@ def Pathgrapher(l,st):
                 #set that new, shorter length as what we have as the distance
                 #to that node, and the predecessor is the node we just came from (m)
                 L[node] = length + L[m]
+                P[node] = m
                 
-                if P[node]==m:
-                    s+=1
-                    if s > tr:
-                        #if the distance to a node, coming from the same node 
-                        #is shorter len(l)+1 times in a row, we can conclude
-                        #that it will go indefinitely negative.
-                        #included for higher efficiency in many cases.
-                        nlcf=negative_length_cycle_finder(l,node,L,P,color_map)
-                        print("This graph contains at least one negative-length cycle:",nlcf[0])
-                        return nlcf[1]
-                else:
-                    P[node] = m
-                    s=0
                 if node == st:
                     #we conclude that there's a path from the start to the start that
                     #is negative, hence will repeat indefinitely.
@@ -152,16 +144,24 @@ def Pathgrapher(l,st):
                     nlcf=negative_length_cycle_finder(l,node,L,P,color_map)
                     print("This graph contains at least one negative-length cycle:",nlcf[0])
                     return nlcf[1]
-
+                
+                if L[node]<mn:
+                    #the length is less than the sum of all negative edges;
+                    #it must be a negtive-length cycle.
+                    #included for higher efficiency in many cases.
+                    nlcf=negative_length_cycle_finder(l,node,L,P,color_map)
+                    print("This graph contains at least one negative-length cycle:",nlcf[0])
+                    return nlcf[1]
+                
                 #This code checks whether we're already planning on looking
-                #at what this node can reach later.
+                #at what this node can reach later. If not, plan to do so.
                 if node not in E[p:]:
                     E.append(node)
                     color_map[node]='red'
                     
         color_map[m]='green'
         
-        if len(E) > len(l)*(len(l)-1)/2+1:
+        if len(E) > tr:
             #If the algorithm starts going indefinitely, it has a negative length cycle
             nlcf=negative_length_cycle_finder(l,m,L,P,color_map)
             print("This graph contains at least one negative-length cycle:",nlcf[0])
@@ -176,11 +176,16 @@ def Pathgrapher(l,st):
     for n,p in P.items():
         path=[P[n]]
         for pr in path:
-            if P[pr] == '-' or pr == '-':
+            if pr == '-':
                 break
             path.append(P[pr])
         path.reverse()
+        del(path[0])
+        if path != []:
+            path.append(n)
         J[n]=path
+    J[st]=[st]
+        
     return L,J
 
 def graph_generator(n,m,s,b):
@@ -190,7 +195,7 @@ def graph_generator(n,m,s,b):
     l=[]
     for i in range(n):
         l.append(dict())
-        for j in range(i):
+        for j in range(1,i):
             if numpy.random.randint(0,1000) < 10*m:
                 l[i][j]=numpy.random.randint(s,b)
         for j in range(i+1,n):
@@ -198,28 +203,14 @@ def graph_generator(n,m,s,b):
                 l[i][j]=numpy.random.randint(s,b)
     return l
 
-l=graph_generator(10,40,-25,50)
-
-print(Pathgrapher(l,0))
-
-# c=[{1:-1,2:1},{0:-1,3:1},{4:1},{5:1},{},{}]
-# print(Pathfinder(c,0))
-# # print(Pathfinder([{1:-1},{0:-1}],0))
-
-# a=[{1:1,3:1},{2:-1,6:-50},{1:-1}]
-# for i in range(4,10):
-#     a.append({i:1})
-# a.append({})
-# print(a)
-# print(Pathfinder(a,0))
-
-# b=[{1:1,3:1,4:1},{2:-1},{1:-1},{5:1},{6:-1},{7:1},{8:-1},{9:1},{10:-1},{11:1},{12:-1},{9:-100},{4:-1},{}]
-# print(b)
-# print(Pathfinder(b,0))
-
-# PWS1 = [{1:7,2:5,3:3,4:1},{2:5,3:3,4:1},{3:3,4:1},{4:1},{0:-5}]
-# print(Pathfinder(PWS1,0))
-
-
-PW = [{1:11,2:9,3:7,4:5,5:3,6:1},{0:-7},{1:1},{2:1},{3:1},{4:1},{5:1}]
+def PWS(n):
+    '''generates the worst-case, slowest scenario for a given number of nodes
+    n to showcase that it will never falsely assume a negative length cycle.'''
+    n-=1
+    PWS=[{1:0},{},{1:-n}]
+    for i in range(2,n):
+        PWS.append({i:1})
+    for i in range(2,n+1):
+        PWS[1][i]=2*n+1-2*i
+    return PWS
 
